@@ -17,6 +17,7 @@ use rand::Rng;
 use std::fs;
 use std::io;
 use std::io::Write;
+use std::iter::FromIterator;
 
 const NUM_INCORRECT_GUESSES: u32 = 5;
 const WORDS_PATH: &str = "words.txt";
@@ -37,4 +38,49 @@ fn main() {
     // println!("random word: {}", secret_word);
 
     // Your code here! :)
+    let mut guess_word_chars:Vec<char>=secret_word_chars.iter().map(|_|'-').collect();
+    let mut guess_word_process: Vec<char>=Vec::new();
+    println!("Welcome to CS110L Hangman!");
+
+    let mut guess_count=5;
+
+    while guess_count>0 &&guess_word_chars!=secret_word_chars{
+        println!("The word so far is {}",String::from_iter(guess_word_chars.iter()));
+        println!("You have guessed the following letters: {}",String::from_iter(guess_word_process.iter()));
+        println!("You have {guess_count} guesses left");
+        print!("Please guess a letter: ");
+        let _=io::stdout().flush();
+
+        let mut input = String::new();
+        if let Err(_)=io::stdin().read_line(&mut input){
+            println!("");
+            continue;
+        };
+
+        let guess_char:Vec<char>=input.chars().collect();
+        let guess_char:char=guess_char[0];
+        guess_word_process.push(guess_char);
+
+        let mut find=false;
+        for (x,&y)in secret_word_chars.iter().enumerate(){
+            if y==guess_char&&guess_word_chars[x]!=guess_char{
+                find=true;
+                guess_word_chars[x]=guess_char;
+                break;
+            }
+        }
+        if !find {
+            guess_count-=1;
+            println!("Sorry, that letter is not in the word");
+
+        }
+        println!("");
+        continue;
+    }
+    if guess_word_chars==secret_word_chars{
+        println!("Congratulations you guessed the secret word: {}!",secret_word);
+    }
+    else{
+        println!("Sorry, you ran out of guesses!");
+    }
 }
