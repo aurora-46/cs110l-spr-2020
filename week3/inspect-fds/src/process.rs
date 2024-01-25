@@ -1,4 +1,6 @@
 use crate::open_file::OpenFile;
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::Pid;
 #[allow(unused)] // TODO: delete this line for Milestone 3
 use std::fs;
 
@@ -23,7 +25,23 @@ impl Process {
     #[allow(unused)] // TODO: delete this line for Milestone 3
     pub fn list_fds(&self) -> Option<Vec<usize>> {
         // TODO: implement for Milestone 3
-        unimplemented!();
+        //unimplemented!();
+        match waitpid(
+            Pid::from_raw(self.pid as i32),
+            Some(nix::sys::wait::WaitPidFlag::WNOHANG),
+        ) {
+            Ok(WaitStatus::Exited(_, _)) => None,
+            _ => {
+                let mut fds = vec![];
+                let entrys = fs::read_dir(format!("/proc/{}/fd", self.pid)).ok()?;
+
+                for entry in entrys {
+                    let fd = entry.ok()?.file_name().to_str()?.parse().ok()?;
+                    fds.push(fd);
+                }
+                Some(fds)
+            }
+        }
     }
 
     /// This function returns a list of (fdnumber, OpenFile) tuples, if file descriptor
@@ -36,6 +54,32 @@ impl Process {
             open_files.push((fd, OpenFile::from_fd(self.pid, fd)?));
         }
         Some(open_files)
+    }
+
+    pub fn print(&self) {
+        println!(
+            "========== \"{}\" (pid {}, ppid {}) ==========",
+            self.command, self.pid, self.ppid
+        );
+        match self.list_open_files() {
+            None => println!(
+                "Warning: could not inspect file descriptors for this process! \
+                    It might have exited just as we were about to look at its fd table, \
+                    or it might have exited a while ago and is waiting for the parent \
+                    to reap it."
+            ),
+            Some(open_files) => {
+                for (fd, file) in open_files {
+                    println!(
+                        "{:<4} {:<15} cursor: {:<4} {}",
+                        fd,
+                        format!("({})", file.access_mode),
+                        file.cursor,
+                        file.colorized_name(),
+                    );
+                }
+            }
+        }
     }
 }
 
